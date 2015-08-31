@@ -1,0 +1,156 @@
+<!--
+(C) Copyright 2015 Nuxeo SA (http://nuxeo.com/) and contributors.
+
+All rights reserved. This program and the accompanying materials
+are made available under the terms of the GNU Lesser General Public License
+(LGPL) version 2.1 which accompanies this distribution, and is available at
+http://www.gnu.org/licenses/lgpl.html
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
+
+Contributors:
+  Nelson Silva <nsilva@nuxeo.com>
+-->
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="nuxeo-es-search.html">
+<!--
+An element providing a solution to no problem in particular.
+
+Example:
+
+    <nuxeo-workflow-duration></nuxeo-workflow-duration>
+
+@group Nuxeo Workflow Data Elements
+@element nuxeo-workflow-duration
+@demo demo/index.html
+-->
+<dom-module id="nuxeo-workflow-duration">
+
+  <style>
+    :host {
+      display: none;
+    }
+  </style>
+
+  <template>
+    <nuxeo-es-search auto index="audit" query="[[query]]" aggregates="[[aggregates]]" on-results="_handleResults"></nuxeo-es-search>
+  </template>
+
+</dom-module>
+
+<script>
+
+  Polymer({
+
+    is: 'nuxeo-workflow-duration',
+
+    properties: {
+
+      /**
+       * the workflow model name
+       */
+      workflow: String,
+
+      /**
+       * the workflow variable to aggregate on
+       */
+      aggregatedOn: String,
+
+      startDate: {
+        type: String,
+        value: ''
+      },
+
+      endDate: {
+        type: String,
+        value: ''
+      },
+
+      /**
+       * The single-value metrics aggregation to use.
+       * Can be one of: `avg`, `min`, `max`
+       */
+      metric: {
+        type: String,
+        value: 'avg'
+      },
+
+      query: {
+        type: Object,
+        readOnly: true,
+        computed: '_query(workflow, startDate, endDate)'
+      },
+
+      aggregates: {
+        type: Object,
+        readOnly: true,
+        computed: '_aggregates(workflow, aggregatedOn, metric)'
+      },
+
+      data: {
+        type: Array,
+        value: function () {
+          return [];
+        },
+        notify: true
+      }
+
+    },
+
+    _query: function () {
+      var query = {
+        bool: {
+          must: [
+            {term: {"category": 'Routing'}},
+            {term: {"eventId": 'afterWorkflowFinish'}},
+            {term: {"extended.modelName": this.workflow}}
+          ]
+        }
+      };
+      if (this.startDate || this.endDate) {
+        query.bool.must.push({range: {eventDate: this._between(this.startDate, this.endDate)}});
+      }
+      return query;
+    },
+
+    _between: function(start, end) {
+      var range = {};
+      if (start) {
+        range.gte = start;
+      }
+      if (end) {
+        range.lte = end;
+      }
+      return range;
+    },
+
+    _aggregates: function () {
+
+      var agg = {
+        duration: {
+          terms: {field: 'extended.variables.department'},
+          aggs: {
+            metric: {
+              //
+            }
+          }
+        }
+      };
+
+      agg.duration.aggs.metric[this.metric] = {
+        field: 'extended.duration'
+      };
+
+      return agg;
+    },
+
+    _handleResults: function (e, response) {
+      this.data = response.aggregations.duration.buckets;
+    }
+
+  });
+
+</script>

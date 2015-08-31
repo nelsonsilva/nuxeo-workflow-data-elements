@@ -1,0 +1,111 @@
+<!doctype html>
+<!--
+(C) Copyright 2015 Nuxeo SA (http://nuxeo.com/) and contributors.
+
+All rights reserved. This program and the accompanying materials
+are made available under the terms of the GNU Lesser General Public License
+(LGPL) version 2.1 which accompanies this distribution, and is available at
+http://www.gnu.org/licenses/lgpl.html
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
+
+Contributors:
+  Nelson Silva <nsilva@nuxeo.com>
+-->
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+    <title>Nuxeo Workflow Data Elements Demo</title>
+    <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+    <link rel="import" href="../nuxeo-workflow-data-elements.html">
+    <style>
+      table {
+        width: 100%;
+        background-color: transparent;
+        border-collapse: collapse;
+        border-spacing: 0;
+      }
+      th {
+        vertical-align: bottom;
+        border-bottom: 2px solid #ddd;
+        text-align: left;
+      }
+      td {
+        padding: 8px;
+        line-height: 1.5em;
+        vertical-align: top;
+        border-top: 1px solid #ddd;
+      }
+      tr:nth-child(odd)>td {
+        background-color: #f9f9f9;
+      }
+    </style>
+  </head>
+  <body unresolved>
+  <template is="dom-bind">
+
+    <nx-connection url="http://localhost:8080/nuxeo" username="Administrator" password="Administrator"></nx-connection>
+
+    <select value="{{durationPerDepartmentMetrics::change}}">
+      <option>avg</option>
+      <option>min</option>
+      <option>max</option>
+    </select>
+
+    <input type="date" value="{{startDate::change}}">
+    <input type="date" value="{{endDate::change}}">
+
+    <nuxeo-workflow-duration workflow="TravelExpenseValidation"
+                             aggregated-on="department" metric="[[durationPerDepartmentMetrics]]"
+                             start-date="[[startDate]]" end-date="[[endDate]]"
+                             data="{{durationPerDepartment}}">
+    </nuxeo-workflow-duration>
+
+    <!-- Table -->
+    <table>
+      <tr>
+        <th>Department</th><th><label>[[durationPerDepartmentMetrics]]</label> Duration</th>
+      </tr>
+      <template is="dom-repeat" items="[[durationPerDepartment]]" as="entry">
+      <tr>
+        <td>[[entry.key]]</td>
+        <td>[[formatDuration(entry.metric.value)]]</td>
+      </tr>
+      </template>
+    </table>
+  </template>
+  <script>
+    var t = document.querySelector('template');
+
+    t.durationPerDepartmentMetrics = 'avg';
+
+    t.formatDuration = function (duration) {
+      var seconds = Math.floor(duration/1000),
+          minutes = Math.floor(seconds/60);
+          hours = Math.floor(minutes/60);
+          days = Math.floor(hours/24);
+          hours = hours-(days*24);
+          minutes = minutes-(days*24*60)-(hours*60);
+          seconds = seconds-(days*24*60*60)-(hours*60*60)-(minutes*60),
+          result = "";
+      if (days > 0) {
+        result += days + " Days ";
+      }
+      if (hours > 0) {
+        result += hours + " h ";
+      }
+      if (minutes > 0) {
+        result += minutes + " m ";
+      }
+      if (seconds > 0) {
+        result += seconds + " s ";
+      }
+      return result;
+    }
+  </script>
+  </body>
+</html>
