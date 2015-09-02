@@ -17,21 +17,21 @@ Contributors:
 <link rel="import" href="../polymer/polymer.html">
 <link rel="import" href="nuxeo-workflow-data-behavior.html">
 <!--
-An element providing a solution to no problem in particular.
+An element providing a count of workflow instances.
 
 Example:
 
-    <nuxeo-workflow-duration></nuxeo-workflow-duration>
+    <nuxeo-workflow-instances-count></nuxeo-workflow-instances-count>
 
 @group Nuxeo Workflow Data Elements
-@element nuxeo-workflow-duration
+@element nuxeo-workflow-instances-count
 @demo demo/index.html
 -->
 <script>
 
   Polymer({
 
-    is: 'nuxeo-workflow-duration',
+    is: 'nuxeo-workflow-instances-count',
 
     behaviors: [Nuxeo.WorkflowDataBehavior],
 
@@ -41,6 +41,19 @@ Example:
        * the workflow variable to aggregate on
        */
       aggregatedOn: String,
+
+      /**
+       * an array of ranges to aggregate
+       */
+      aggregatedByRanges: {
+        type: Array,
+        value: function () { return []; }
+      },
+
+      aggregatedByDateInterval: {
+        type: String,
+        value: ''
+      },
 
       startDate: {
         type: String,
@@ -52,15 +65,6 @@ Example:
         value: ''
       },
 
-      /**
-       * The single-value metrics aggregation to use.
-       * Can be one of: `avg`, `min`, `max`
-       */
-      aggregatedByMetric: {
-        type: String,
-        value: 'avg'
-      },
-
       query: {
         type: Object,
         readOnly: true,
@@ -70,7 +74,7 @@ Example:
       aggregates: {
         type: Object,
         readOnly: true,
-        computed: '_aggregates(workflow, aggregatedOn, aggregatedByMetric)'
+        computed: '_aggregates(workflow, aggregatedOn, aggregatedByRanges)'
       }
 
     },
@@ -96,32 +100,49 @@ Example:
 
     _aggregates: function () {
 
-      var field = this._fieldFor(this.aggregatedOn);
+      var agg = { count: {}},
+          field = this._fieldFor(this.aggregatedOn);
 
-      var agg = {
-        duration: {
-          terms: {field: field},
-          aggs: {
-            metric: {
-              //
-            }
-          }
+      if (this.aggregatedByRanges.length) {
+        agg.count.range = {
+          field : field,
+          ranges : this.aggregatedByRanges
         }
-      };
-
-      agg.duration.aggs.metric[this.aggregatedByMetric] = {
-        field: 'extended.duration'
-      };
+      } else {
+        agg.count.terms = {field: field};
+        if (this.aggregatedByDateInterval) {
+          agg.count.aggs = {
+            date_intervals: {
+              date_histogram: {
+                field: "eventDate",
+                interval: this.aggregatedByDateInterval,
+                min_doc_count: 0,
+                format: 'yyyy-MM-dd'
+                // TODO
+                //extended_bounds: {
+                //  min: API.minDate,
+                //  max: API.maxDate
+                //}
+              }
+            }
+          };
+        }
+      }
 
       return agg;
     },
 
-    _onResults: function (response) {
-      this.data = response.aggregations.duration.buckets.map((function (bucket) {
-        return {key: bucket.key, value: bucket.metric.value};
-      }));
+    _onResults: function (result) {
+      this.data = result.aggregations.count.buckets.map(function (bucket) {
+        var res = {key: bucket.key, value: bucket.doc_count};
+        if (this.aggregatedByDateInterval) {
+          res.dateIntervals = bucket.date_intervals.buckets.map((function(interval) {
+            return {key: interval.key_as_string, value: interval.doc_count};
+          }));
+        }
+        return res;
+      }.bind(this));
     }
-
   });
 
 </script>

@@ -15,7 +15,7 @@ Contributors:
   Nelson Silva <nsilva@nuxeo.com>
 -->
 <link rel="import" href="../nuxeo-elements/nx-connection.html">
-<link rel="import" href="../iron-ajax/iron-ajax.html">
+<link rel="import" href="../iron-ajax/iron-request.html">
 
 <!--
 An element allowing querying the Nuxeo ES passthrough.
@@ -35,13 +35,6 @@ Example:
   </style>
   <template>
     <nx-connection id="nx" connection-id="[[connectionId]]"></nx-connection>
-    <iron-ajax id="xhr" method="POST"
-               url="[[_urlFor(connectionId, index)]]"
-               body="[[_bodyFor(query, aggregates)]]"
-               content-type="application/json"
-               handle-as="json"
-               headers="[[_headersFor(connectionId)]]"
-               on-response="_handleResponse"></iron-ajax>
   </template>
 
   <script>
@@ -55,7 +48,7 @@ Example:
            */
           connectionId: {
             type: String,
-            value: ''
+            value: 'nx'
           },
 
           /**
@@ -96,30 +89,43 @@ Example:
 
         execute: function () {
           return this.$.nx.connect()
-              .then(function () {
-                this.$.xhr.generateRequest();
-              }.bind(this));
+              .then(this._send.bind(this));
         },
 
-        _urlFor: function(connectionId, index) {
-          var url = this.$.nx.client._baseURL;
-          return [url, 'site/es', index, '_search'].join('/');
+        _send: function() {
+            var url = [this.$.nx.client._baseURL, 'site/es', this.index, '_search'].join('/');
+
+            return document.createElement('iron-request')
+                .send({
+                  url: url,
+                  method: 'POST',
+                  headers: {
+                    'Authorization': this.$.nx.client._headers['Authorization'],
+                    'Content-Type': 'application/json'
+                  },
+                  body: {
+                    query: this.query, aggs: this.aggregates
+                  },
+                  handleAs: 'json'
+                })
+                .then(this._handleResponse.bind(this))
+                .catch(this._handleError.bind(this));
         },
 
-        _headersFor: function(connectionId) {
-          return this.$.nx.client._headers;
+        _handleError: function(request, error) {
+          console.error(error);
+          this.fire('error', {
+            request: request,
+            error: error
+          });
         },
 
-        _bodyFor: function(query, aggregates) {
-          return {
-            query: query, aggs: aggregates
-          }
-        },
-
-        _handleResponse: function(e, request) {
-          this.aggregations = request.response.aggregations;
-          this.hits = request.response.hits;
-          this.fire('results', request.response);
+        _handleResponse: function(request) {
+          var response = request.response;
+          this.aggregations = response.aggregations;
+          this.hits = response.hits;
+          this.fire('results', response);
+          return response;
         }
       });
     })();
