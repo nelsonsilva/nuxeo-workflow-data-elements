@@ -86,34 +86,17 @@ Contributors:
       'fetch(index, query, aggregates)'
     ],
 
-    fetch: function(index, query, aggregates) {
+    fetch: function() {
       var search = document.createElement('nuxeo-es-search');
       search.connectionId = this.connectionId;
-      search.index = index;
-      search.query = query;
-      search.aggregates = aggregates;
+      search.index = this.index;
+      search.query = this.query;
+      search.aggregates = this.aggregates;
       search.execute().then(this._onResults.bind(this));
     },
 
     _onResults: function(results) {
       // abstract method to handle results
-    },
-
-    // Helper functions
-    _fieldFor: function(column) {
-      var isVariable  = ['user', 'taskName', 'action', 'duration'].indexOf(column) == -1;
-      return 'extended' + (isVariable ? '.variables' : '') + '.' + column;
-    },
-
-    _between: function(start, end) {
-      var range = {};
-      if (start) {
-        range.gte = start;
-      }
-      if (end) {
-        range.lte = end;
-      }
-      return range;
     }
   };
 </script>
